@@ -1,0 +1,50 @@
+name: Manual Deploy (QA)
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment'
+        required: true
+        default: 'qa'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Create GitHub Deployment
+        id: create_deploy
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const resp = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: '${{ github.ref }}',
+              required_contexts: [],
+              environment: '${{ github.event.inputs.env }}',
+              transient_environment: false,
+              description: 'Manual deploy from Actions'
+            });
+            core.setOutput('deployment_id', resp.data.id);
+
+      - name: Simulate deployment steps
+        run: |
+          echo "Simulating deployment..."
+          sleep 2
+          echo "Deployment completed"
+
+      - name: Mark deployment success
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: parseInt('${{ steps.create_deploy.outputs.deployment_id }}'),
+              state: 'success',
+              description: 'Deployment finished successfully'
+            });
